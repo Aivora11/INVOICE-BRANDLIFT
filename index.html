@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brandlift Invoice Generator</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700&display=swap"
+        rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        :root {
+            --bg-color: #0d0d12;
+            --card-bg: #1a1a24;
+            --primary-color: #8b5cf6;
+            /* Cosmic Violet */
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #2d2d3a;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Editor Panel (Left) */
+        .editor-panel {
+            width: 400px;
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .editor-panel header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .editor-panel header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #fff, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0;
+            /* Override previous margin */
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        input {
+            background-color: #0f0f16;
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 0.75rem;
+            border-radius: 6px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+        }
+
+        .form-section h3 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px dashed var(--border-color);
+            color: var(--text-muted);
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: rgba(139, 92, 246, 0.05);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), #6366f1);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+        }
+
+        .line-item-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 0.5fr auto;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0 0.5rem;
+        }
+
+        /* Preview Panel (Right) */
+        .preview-panel {
+            flex: 1;
+            background-color: #0d0d12;
+            padding: 4rem;
+            display: flex;
+            justify-content: center;
+            overflow-y: auto;
+        }
+
+        /* INVOICE STYLES (Printable) */
+        .invoice-box {
+            width: 210mm;
+            /* A4 width */
+            min-height: auto;
+            /* Let content decide height, or use 295mm if fixed size needed, but auto prevents overflow blank pages */
+            background: white;
+            color: #333;
+            padding: 40px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            position: relative;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+        }
+
+        .brand .logo {
+            max-width: 200px;
+            /* height: auto; */
+            object-fit: contain;
+        }
+
+        .invoice-title {
+            text-align: right;
+        }
+
+        .invoice-title h1 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 400;
+            font-size: 3rem;
+            letter-spacing: 4px;
+            margin-bottom: 10px;
+            color: #000;
+            background: none;
+            -webkit-text-fill-color: initial;
+        }
+
+        .invoice-title p {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .invoice-meta-date {
+            text-align: center;
+            margin-bottom: 40px;
+            font-weight: 500;
+        }
+
+        .bill-to h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .bill-to h4 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #000;
+        }
+
+        .company-address {
+            text-align: right;
+            font-size: 0.9rem;
+            margin-top: -40px;
+            /* Align roughly with Bill To */
+            margin-bottom: 60px;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .table-container {
+            margin-bottom: 40px;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .invoice-table th {
+            background-color: #222;
+            color: white;
+            padding: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            border-bottom: none;
+        }
+
+        .invoice-table td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.95rem;
+            color: #333;
+        }
+
+        .text-left {
+            text-align: left;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .invoice-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-top: 40px;
+        }
+
+        .qr-section {
+            margin-top: 80px;
+            /* Push QR down relative to Total */
+        }
+
+        .total-section {
+            width: 300px;
+        }
+
+        .total-row {
+            background-color: #222;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            border-radius: 4px;
+            margin-bottom: 40px;
+            border: none;
+        }
+
+        .signature-section {
+            text-align: center;
+            color: #333;
+        }
+
+        .signature-section .line {
+            border-top: 1px solid #ccc;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .signature-section .role {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .signature-section .name {
+            font-weight: 800;
+            /* Extra Bold */
+            font-size: 1rem;
+            margin-top: 2px;
+        }
+
+        .thank-you {
+            margin-top: 60px;
+            font-style: italic;
+            font-size: 1.1rem;
+        }
+
+        #qrcode img {
+            width: 100px;
+            height: 100px;
+        }
+
+        /* History Sidebar */
+        .history-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 300px;
+            /* Slightly narrower than editor */
+            height: 100vh;
+            background-color: #15151e;
+            border-right: 1px solid var(--border-color);
+            z-index: 1000;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-sidebar.open {
+            transform: translateX(0);
+        }
+
+        .history-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            border-color: var(--primary-color);
+            background: rgba(139, 92, 246, 0.05);
+        }
+
+        .history-item h4 {
+            font-size: 0.9rem;
+            color: #fff;
+            margin-bottom: 0.25rem;
+        }
+
+        .history-item p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .history-item .date {
+            display: block;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            opacity: 0.7;
+        }
+
+        /* Overlay for mobile/sidebar focus (optional but good) */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 900;
+            display: none;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        /* Print Styles (for Ctrl+P) */
+        @media print {
+
+            .editor-panel,
+            .history-sidebar,
+            .btn-icon,
+            .header-actions {
+                display: none !important;
+            }
+
+            .app-container {
+                display: block;
+                height: auto;
+                background: white;
+            }
+
+            .preview-panel {
+                padding: 0;
+                background: white;
+                display: block;
+                overflow: visible;
+            }
+
+            .invoice-box {
+                box-shadow: none;
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            /* Ensure background graphics print if user enables it */
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Editor Panel -->
+        <div class="editor-panel">
+            <header>
+                <h1>Invoice Generator</h1>
+                <div class="header-actions">
+                    <button type="button" id="toggleHistoryBtn" class="btn-icon" title="History"><i
+                            class="fas fa-history"></i></button>
+                    <button type="button" id="newInvoiceBtn" class="btn-icon" title="New Invoice"><i
+                            class="fas fa-plus"></i></button>
+                </div>
+            </header>
+
+            <form id="invoiceForm">
+                <div class="form-group">
+                    <label>Invoice ID</label>
+                    <input type="text" id="invoiceId" value="BL-25-12-01">
+                </div>
+
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="invoiceDate">
+                </div>
+
+                <div class="form-section">
+                    <h3>Client Details</h3>
+                    <div class="form-group">
+                        <label>Client Name / Company</label>
+                        <input type="text" id="clientName" placeholder="e.g. Client Name ">
+                    </div>
+                    <div class="form-group">
+                        <label>Address / Location</label>
+                        <input type="text" id="clientAddress" placeholder="e.g. place">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Line Items</h3>
+                    <div id="lineItemsContainer">
+                        <!-- Items will be added here via JS -->
+                    </div>
+                    <button type="button" id="addItemBtn" class="btn-secondary">+ Add Item</button>
+                </div>
+
+                <div class="form-section">
+                    <h3>Payment Settings</h3>
+                    <div class="form-group">
+                        <label>UPI ID (for auto-generation)</label>
+                        <input type="text" id="upiId" value="brandlift@upi" placeholder="e.g. name@upi">
+                    </div>
+                    <div class="form-group">
+                        <label>Or Upload Custom QR (Image)</label>
+                        <input type="file" id="qrUpload" accept="image/*">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="saveBtn" class="btn-secondary"><i class="fas fa-save"></i> Save
+                        Invoice</button>
+                    <button type="button" id="downloadBtn" class="btn-primary"><i class="fas fa-download"></i> Download
+                        PDF</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- History Sidebar (Initially Hidden) -->
+        <div id="historySidebar" class="history-sidebar">
+            <div class="history-header">
+                <h2>Invoice History</h2>
+                <button id="closeHistoryBtn" class="close-btn">&times;</button>
+            </div>
+            <div id="historyList" class="history-list">
+                <!-- History items will be populated here -->
+            </div>
+        </div>
+
+        <!-- Preview Panel -->
+        <div class="preview-panel">
+            <div id="invoice" class="invoice-box">
+                <div class="invoice-header">
+                    <div class="brand">
+                        <img src="brandlift_logo.png" alt="Brandlift" class="logo">
+                    </div>
+                    <div class="invoice-title">
+                        <h1>INVOICE</h1>
+                        <p>Invoice ID: <span id="previewInvoiceId">BL-25-12-01</span></p>
+                    </div>
+                </div>
+
+                <div class="invoice-meta-date">
+                    <p>Date: <span id="previewDate">16/12/2025</span></p>
+                </div>
+
+                <div class="bill-to">
+                    <h3>INVOICE TO</h3>
+                    <h4 id="previewClientName">NHIMS HOSPITAL, CHERUTHURUTHY</h4>
+                </div>
+
+                <div class="company-address">
+                    <p>1st Floor KMK Tower</p>
+                    <p>Cheruthuruthy, Thrissur</p>
+                    <p>PH: +91 7902812336</p>
+                    <p>www.brandliftonline.com</p>
+                </div>
+
+                <div class="table-container">
+                    <table class="invoice-table">
+                        <thead>
+                            <tr>
+                                <th class="text-left">PRODUCT</th>
+                                <th class="text-center">PRICE</th>
+                                <th class="text-center">QTY</th>
+                                <th class="text-right">TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewItemsBody">
+                            <!-- Items will be rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Total Section (Independent, Right Aligned) -->
+                <div class="total-container"
+                    style="display: flex; justify-content: flex-end; margin-top: 20px; margin-bottom: 60px;">
+                    <div class="total-row" style="width: 300px; margin-bottom: 0;">
+                        <span>TOTAL</span>
+                        <span id="previewTotal">1500 Rs</span>
+                    </div>
+                </div>
+
+                <div class="invoice-footer" style="margin-top: 0; align-items: flex-end;">
+                    <div class="qr-section" style="margin-top: 0;">
+                        <h4>PAYMENT METHOD</h4>
+                        <br>
+                        <div id="qrcode"></div>
+                    </div>
+
+                    <div class="signature-section">
+                        <div class="line"></div>
+                        <p class="role">CEO</p>
+                        <p class="name">Aswin Krishna</p>
+                    </div>
+                </div>
+
+                <div class="thank-you">
+                    <p>Thank You For Your Business</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initial Data
+        const initialItem = {
+            name: '',
+            price: 0,
+            qty: 1
+        };
+
+        // State
+        let currentInvoiceItems = [];
+
+        // Safe Storage Helper
+        const safeStorage = {
+            getItem: (key) => {
+                try { return localStorage.getItem(key); } catch (e) { console.warn('Storage Access Denied', e); return null; }
+            },
+            setItem: (key, val) => {
+                try { localStorage.setItem(key, val); return true; } catch (e) {
+                    console.warn('Storage Access Denied', e);
+                    alert('Warning: Cannot save data (Browser blocked Storage). Try opening this file with a local server (vsCode Live Server).');
+                    return false;
+                }
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                // 1. Initialize Default Values
+                initializeDefaults();
+
+                // 2. Setup Event Listeners
+                // 2. Setup Event Listeners (Handled in initializeDefaults)
+                // setupEventListeners();
+
+                // 3. Render Initial State
+                renderItems();
+                updatePreview();
+
+                // 4. Load History (if any) to check ID
+                autoGenerateNextId();
+
+                console.log("Invoice App Initialized Successfully");
+            } catch (criticalError) {
+                alert("App Initialization Error: " + criticalError.message);
+                console.error(criticalError);
+            }
+        });
+
+        function initializeDefaults() {
+            const dateInput = document.getElementById('invoiceDate');
+            if (!dateInput.value) {
+                dateInput.valueAsDate = new Date();
+            }
+
+            // Add default item if list is empty
+            if (currentInvoiceItems.length === 0) {
+                currentInvoiceItems.push({ ...initialItem });
+            }
+
+            // Initialize Payment Settings
+            const storedUpi = safeStorage.getItem('brandlift_upi_id');
+            if (storedUpi) {
+                document.getElementById('upiId').value = storedUpi;
+            }
+
+            // Safely try to render initial QR
+            try {
+                updateQRCode(1500);
+            } catch (e) {
+                console.warn('QR Code lib not loaded yet');
+            }
+
+            // 2. Setup Event Listeners (Already handled in initializeDefaults)
+            // Input Bindings
+            bindPreviewUpdater('invoiceId', 'previewInvoiceId');
+            bindPreviewUpdater('invoiceDate', 'previewDate', (val) => {
+                if (!val) return '';
+                const d = new Date(val);
+                return d.toLocaleDateString('en-GB');
+            });
+            bindPreviewUpdater('clientName', 'previewClientName');
+
+            // Buttons
+            document.getElementById('addItemBtn').addEventListener('click', () => {
+                currentInvoiceItems.push({ name: '', price: 0, qty: 1 });
+                renderItems();
+                updatePreview();
+            });
+
+            document.getElementById('downloadBtn').addEventListener('click', generatePDF);
+            document.getElementById('saveBtn').addEventListener('click', saveInvoice);
+            document.getElementById('newInvoiceBtn').addEventListener('click', startNewInvoice);
+            document.getElementById('toggleHistoryBtn').addEventListener('click', toggleHistory);
+            document.getElementById('closeHistoryBtn').addEventListener('click', toggleHistory);
+
+            // Payment Listeners
+            document.getElementById('upiId').addEventListener('input', (e) => {
+                safeStorage.setItem('brandlift_upi_id', e.target.value);
+                updatePreview(); // Re-render QR
+            });
+
+            document.getElementById('qrUpload').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = `<img src="${e.target.result}" style="width:100px; height:100px; object-fit:contain;">`;
+                        document.getElementById('qrcode').innerHTML = img;
+                        // Store this customization in state? For simple usage, we just render it.
+                        // We'll mark a flag that we are using custom QR so updatePreview doesn't overwrite it immediately
+                        document.getElementById('qrcode').dataset.custom = "true";
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    document.getElementById('qrcode').dataset.custom = "false";
+                    updatePreview();
+                }
+            });
+        }
+
+        function bindPreviewUpdater(inputId, previewId, formatter = null) {
+            const input = document.getElementById(inputId);
+            const preview = document.getElementById(previewId);
+
+            if (input && preview) {
+                input.addEventListener('input', () => {
+                    preview.innerText = formatter ? formatter(input.value) : input.value;
+                });
+                // Initial sync
+                preview.innerText = formatter ? formatter(input.value) : input.value;
+            }
+        }
+
+        // --- Item Management ---
+
+        function renderItems() {
+            const container = document.getElementById('lineItemsContainer');
+            container.innerHTML = '';
+
+            currentInvoiceItems.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'line-item-row';
+
+                row.innerHTML = `
+            <input type="text" class="item-name" value="${item.name}" placeholder="Item Name" data-idx="${index}">
+            <input type="number" class="item-price" value="${item.price}" placeholder="Price" data-idx="${index}">
+            <input type="number" class="item-qty" value="${item.qty}" placeholder="Qty" data-idx="${index}">
+            <button type="button" class="remove-btn" data-idx="${index}">×</button>
+        `;
+
+                container.appendChild(row);
+            });
+
+            // Bind events to new inputs
+            container.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const idx = e.target.dataset.idx;
+                    const field = e.target.classList.contains('item-name') ? 'name' :
+                        e.target.classList.contains('item-price') ? 'price' : 'qty';
+
+                    currentInvoiceItems[idx][field] = field === 'name' ? e.target.value : parseFloat(e.target.value) || 0;
+                    updatePreview();
+                });
+            });
+
+            container.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(e.target.dataset.idx);
+                    currentInvoiceItems.splice(idx, 1);
+                    renderItems();
+                    updatePreview();
+                });
+            });
+        }
+
+        function updatePreview() {
+            const tbody = document.getElementById('previewItemsBody');
+            const totalEl = document.getElementById('previewTotal');
+
+            tbody.innerHTML = '';
+            let grandTotal = 0;
+
+            currentInvoiceItems.forEach(item => {
+                const total = item.price * item.qty;
+                grandTotal += total;
+
+                if (item.name || item.price > 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                <td class="text-left">${item.name}</td>
+                <td class="text-center">${item.price} Rs</td>
+                <td class="text-center">${item.qty}</td>
+                <td class="text-right">${total} RS</td>
+            `;
+                    tbody.appendChild(tr);
+                }
+            });
+
+            totalEl.innerText = `${grandTotal} Rs`;
+            updateQRCode(grandTotal);
+        }
+
+        function updateQRCode(amount) {
+            const qrContainer = document.getElementById('qrcode');
+
+            // If user uploaded a custom image and didn't clear it, don't overwrite with auto-generated code
+            // UNLESS the amount changed? Actually, if it's a static image (like GPay screenshot), it doesn't encode amount.
+            // So we respect the custom image if present.
+            if (qrContainer.dataset.custom === "true") return;
+
+            qrContainer.innerHTML = ''; // Clear previous
+            const upiId = document.getElementById('upiId').value || 'brandlift@upi';
+
+            if (typeof QRCode === 'undefined') {
+                qrContainer.innerHTML = '<p style="font-size:0.7rem; color:#666; text-align:center; padding:10px; border:1px dashed #ccc;">QR Lib Missing</p>';
+                return;
+            }
+
+            new QRCode(qrContainer, {
+                text: `upi://pay?pa=${upiId}&pn=Brandlift&am=${amount}`,
+                width: 100,
+                height: 100
+            });
+        }
+
+        // --- History & Storage Logic ---
+
+        function getInvoices() {
+            const stored = safeStorage.getItem('brandlift_invoices');
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        function saveInvoice() {
+            const id = document.getElementById('invoiceId').value;
+            if (!id) return alert('Please enter an Invoice ID');
+
+            const invoiceData = {
+                id: id,
+                date: document.getElementById('invoiceDate').value,
+                clientName: document.getElementById('clientName').value,
+                clientAddress: document.getElementById('clientAddress').value,
+                items: currentInvoiceItems,
+                savedAt: new Date().toISOString()
+            };
+
+            const invoices = getInvoices();
+            // Check if exists, update index if so
+            const existingIndex = invoices.findIndex(inv => inv.id === id);
+
+            if (existingIndex >= 0) {
+                if (!confirm('Invoice ID exists. Overwrite?')) return;
+                invoices[existingIndex] = invoiceData;
+            } else {
+                invoices.push(invoiceData);
+            }
+
+            if (safeStorage.setItem('brandlift_invoices', JSON.stringify(invoices))) {
+                alert('Invoice Saved!');
+                renderHistoryList();
+            }
+        }
+
+        function autoGenerateNextId() {
+            const invoices = getInvoices();
+            if (invoices.length === 0) {
+                // Default start
+                document.getElementById('invoiceId').value = "BL-25-12-01";
+                // Update preview
+                document.getElementById('previewInvoiceId').innerText = "BL-25-12-01";
+                return;
+            }
+
+            // Sort by savedAt descending to get latest, or just parse IDs
+            // Let's try to find the "max" ID based on the suffix number
+            // Assumption: Format is PREFIX-YY-MM-XX
+
+            let maxNum = 0;
+            invoices.forEach(inv => {
+                const parts = inv.id.split('-');
+                if (parts.length > 0) {
+                    const num = parseInt(parts[parts.length - 1]);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
+            });
+
+            const nextNum = maxNum + 1;
+            const paddedNum = nextNum.toString().padStart(2, '0');
+
+            // Construct new ID using current date parts or keep prefix?
+            // Let's stick to the user's requested format "BL-25-12-xx"
+            // Ideally we should use current Month/Year
+            const today = new Date();
+            const yy = today.getFullYear().toString().slice(-2);
+            const mm = (today.getMonth() + 1).toString().padStart(2, '0');
+
+            const newId = `BL-${yy}-${mm}-${paddedNum}`;
+            document.getElementById('invoiceId').value = newId;
+
+            // Manually trigger preview update since setting value programmatically doesn't trigger 'input'
+            document.getElementById('previewInvoiceId').innerText = newId;
+        }
+
+        function startNewInvoice() {
+            // Reset fields
+            document.getElementById('clientName').value = '';
+            document.getElementById('clientAddress').value = '';
+            document.getElementById('invoiceDate').valueAsDate = new Date();
+
+            currentInvoiceItems = [{ name: '', price: 0, qty: 1 }];
+            renderItems();
+            updatePreview();
+
+            // Generate new ID
+            autoGenerateNextId();
+
+            // Reset QR State
+            resetQRState();
+        }
+
+        function resetQRState() {
+            document.getElementById('qrcode').dataset.custom = "false";
+            document.getElementById('qrUpload').value = ""; // Clear file input
+            // Force re-render of standard QR
+            // The updatePreview() call in startNewInvoice/loadInvoice does this, 
+            // BUT only if we do this reset BEFORE updatePreview in those functions 
+            // OR we explicitly call updateQRCode here.
+            // updateQRCode relies on total, loops... easier to just let updatePreview handle it 
+            // IF we call resetQRState() BEFORE updatePreview().
+        }
+
+        // --- History UI ---
+
+        function toggleHistory() {
+            const sidebar = document.getElementById('historySidebar');
+            sidebar.classList.toggle('open');
+            if (sidebar.classList.contains('open')) {
+                renderHistoryList();
+            }
+        }
+
+        function renderHistoryList() {
+            const list = document.getElementById('historyList');
+            const invoices = getInvoices();
+
+            // Sort Newest First
+            invoices.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+            list.innerHTML = '';
+            if (invoices.length === 0) {
+                list.innerHTML = '<p style="color:#666; text-align:center;">No history found</p>';
+                return;
+            }
+
+            invoices.forEach(inv => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                const total = inv.items.reduce((sum, i) => sum + (i.price * i.qty), 0);
+
+                item.innerHTML = `
+            <h4>${inv.id}</h4>
+            <p>${inv.clientName || 'Unknown Client'}</p>
+            <span class="date">${new Date(inv.date).toLocaleDateString()} • ₹${total}</span>
+        `;
+
+                item.addEventListener('click', () => loadInvoice(inv));
+                list.appendChild(item);
+            });
+        }
+
+        function loadInvoice(inv) {
+            document.getElementById('invoiceId').value = inv.id;
+            document.getElementById('invoiceDate').value = inv.date;
+            document.getElementById('clientName').value = inv.clientName;
+            document.getElementById('clientAddress').value = inv.clientAddress;
+
+            currentInvoiceItems = JSON.parse(JSON.stringify(inv.items)); // Deep copy
+
+            // Reset QR to standard before rendering
+            document.getElementById('qrcode').dataset.custom = "false";
+            document.getElementById('qrUpload').value = "";
+
+            renderItems();
+            updatePreview();
+
+            // Trigger input events to update preview text for static fields
+            document.getElementById('previewInvoiceId').innerText = inv.id;
+            document.getElementById('previewClientName').innerText = inv.clientName || '';
+            const d = new Date(inv.date);
+            document.getElementById('previewDate').innerText = d.toLocaleDateString('en-GB');
+
+            toggleHistory(); // Close sidebar
+        }
+
+        // --- PDF Generation ---
+        function generatePDF() {
+            const element = document.getElementById('invoice');
+            const button = document.getElementById('downloadBtn');
+            const originalText = button.innerHTML;
+
+            button.innerHTML = "<i class='fas fa-spinner fa-spin'></i> Generating...";
+            button.disabled = true;
+
+            if (typeof html2pdf === 'undefined') {
+                alert('Error: PDF Generator library not loaded. Please check your internet connection.');
+                button.innerHTML = originalText;
+                button.disabled = false;
+                return;
+            }
+
+            const opt = {
+                margin: 0,
+                filename: `Invoice_${document.getElementById('invoiceId').value}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+
+                // Auto-save on download? Optional, maybe nice.
+                // saveInvoice(); 
+            });
+        }
+    </script>
+</body>
+
+</html>
